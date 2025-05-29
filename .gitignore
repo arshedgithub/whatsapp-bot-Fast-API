@@ -1,4 +1,16 @@
+# venv
 .venv
 
+# env files
 .env
 
+# cache files
+*.py[cod]
+__pycache__/
+
+# logs
+*.log
+
+# temp files
+*.tmp
+*.tmp.*

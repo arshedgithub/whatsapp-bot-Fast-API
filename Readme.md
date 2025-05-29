@@ -2,6 +2,11 @@
 
 Fast API + Twilio + groq
 
+## Run Fast API
+
+`
+uvicorn app.main:app
+`
 
 File Architecture
 

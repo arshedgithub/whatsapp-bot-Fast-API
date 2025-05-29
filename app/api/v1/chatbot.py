@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from twilio.twiml.messaging_response import MessagingResponse
-from app.services import ChatbotService
+from app.services.chatbot_service import chatbot_service
 
 router = APIRouter()
 

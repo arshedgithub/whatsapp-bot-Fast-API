@@ -18,7 +18,6 @@ class GroqClient:
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         payload = {
-            "inputs": {},
             "query": user_input,
             "conversation_id": conversation_id,
             "user": user_id,

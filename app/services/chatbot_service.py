@@ -4,12 +4,13 @@ from app.integrations import GroqClient
 class ChatbotService:
     def __init__(self):
         self.user_sessions: Dict[str, str] = {}
+        self.groq_client = GroqClient()
 
     async def process_message(self, user_id: str, message: str) -> str:
         conversation_id = self.user_sessions.get(user_id)
         
         try:
-            response = await groq_client.get_response(
+            response = await self.groq_client.get_response(
                 user_input=message,
                 conversation_id=conversation_id,
                 user_id=user_id
