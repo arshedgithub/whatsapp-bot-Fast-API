@@ -1,6 +1,6 @@
 import requests
 from typing import Dict, Any, Optional
-from app.core.config import get_settings
+from app.core import get_settings
 
 class GroqClient:
     def __init__(self):

@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from app.integrations.groq_client import groq_client
+from app.integrations import GroqClient
 
 class ChatbotService:
     def __init__(self):
