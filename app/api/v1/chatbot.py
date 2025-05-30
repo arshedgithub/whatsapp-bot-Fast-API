@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 from twilio.twiml.messaging_response import MessagingResponse
 from app.services import ChatbotService
+from fastapi.responses import Response
 
 chatbot_service = ChatbotService()
 
@@ -23,8 +24,13 @@ async def reply_whatsapp(request: Request):
         response = await chatbot_service.process_message(from_number, user_input)
         print("Response: ", response)
         msg.body(response)
+        
+        twiml_response = str(resp)
+        return Response(content=twiml_response, media_type="application/xml")
+        
     except Exception as e:
         print("Error processing message:", str(e))
         msg.body("Sorry, there was an error processing your message. Please try again later.")
+        return Response(content=str(resp), media_type="application/xml")
 
-    return str(resp)
+        # option here to connect to a human
