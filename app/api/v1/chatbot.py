@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request
-from twilio.twiml.messaging_response import MessagingResponse
 from app.services import ChatbotService
-from fastapi.responses import Response
+from app.integrations import twilio_client
 
 chatbot_service = ChatbotService()
 
@@ -9,28 +8,18 @@ router = APIRouter()
 
 @router.post("/whatsapp")
 async def reply_whatsapp(request: Request):
-    print("Testing whatsapp route")
-
-    form_data = await request.form()
-    from_number = form_data.get('From', '')
-    user_input = form_data.get('Body', '').strip()
-
-    print("User input: ", user_input)
-
-    resp = MessagingResponse()
-    msg = resp.message()
-
     try:
+        from_number, user_input = await twilio_client.parse_incoming_message(request)
+        print("User input: ", user_input)
+
         response = await chatbot_service.process_message(from_number, user_input)
         print("Response: ", response)
-        msg.body(response)
-        
-        twiml_response = str(resp)
-        return Response(content=twiml_response, media_type="application/xml")
-        
+
+        return twilio_client.create_response(response)
+
     except Exception as e:
         print("Error processing message:", str(e))
-        msg.body("Sorry, there was an error processing your message. Please try again later.")
-        return Response(content=str(resp), media_type="application/xml")
-
+        return twilio_client.create_response(
+            "Sorry, there was an error processing your message. Please try again later."
+        )
         # option here to connect to a human
