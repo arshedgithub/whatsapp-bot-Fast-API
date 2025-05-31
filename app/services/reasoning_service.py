@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
+from app.integrations import groq_client
 
 class ResponseType(Enum):
     TEXT = "text"
@@ -21,98 +22,70 @@ class QueryIntent(BaseModel):
 
 class ReasoningService:
     def __init__(self):
-        # Define keywords and patterns for different types of queries
-        self.patterns = {
-            ResponseType.HUMAN: [
-                "speak to human",
-                "talk to agent",
-                "connect to support",
-                "customer service"
-            ],
-            ResponseType.PRODUCT_INFO: [
-                "product",
-                "price",
-                "cost",
-                "available",
-                "stock",
-                "catalog",
-                "show me products"
-            ],
-            ResponseType.ORDER_STATUS: [
-                "order",
-                "tracking",
-                "delivery",
-                "shipping"
-            ],
-            ResponseType.CUSTOMER_SUPPORT: [
-                "help",
-                "support",
-                "issue",
-                "problem",
-                "complaint"
-            ],
-            ResponseType.FORM: [
-                "register",
-                "sign up",
-                "create account",
-                "place order",
-                "book appointment"
-            ]
-        }
+        self.intent_prompt = """Analyze the user's message and determine the most appropriate response type.
+Available response types:
+- TEXT: General conversation or questions
+- CATALOG: Product inquiries, pricing, or browsing
+- FORM: Registration, sign up, or data collection
+- BUTTONS: Options that need user selection
+- LIST: Multiple options with descriptions
+- HUMAN: Request to speak with a human agent
+- PRODUCT_INFO: Specific product details
+- ORDER_STATUS: Order tracking or history
+- CUSTOMER_SUPPORT: Help or support requests
+
+Respond in JSON format with:
+{
+    "type": "RESPONSE_TYPE",
+    "confidence": 0.0-1.0,
+    "metadata": {
+        "category": "specific_category",
+        "reason": "explanation"
+    },
+    "ui_type": "specific_ui_component_if_needed"
+}"""
 
     async def analyze_query(self, query: str) -> QueryIntent:
-        """Analyze the user query and determine the appropriate response type."""
-        query = query.lower()
-        
-        # Check for human connection request first
-        if any(pattern in query for pattern in self.patterns[ResponseType.HUMAN]):
-            return QueryIntent(
-                type=ResponseType.HUMAN,
-                confidence=0.9,
-                metadata={"reason": "Explicit request for human connection"}
-            )
+        """Use Groq to analyze the user query and determine the appropriate response type."""
+        try:
+            # Prepare the prompt with the user's query
+            full_prompt = f"{self.intent_prompt}\n\nUser message: {query}\n\nAnalysis:"
+            
+            print("Full prompt: ", full_prompt)
 
-        # Check for product-related queries
-        if any(pattern in query for pattern in self.patterns[ResponseType.PRODUCT_INFO]):
-            return QueryIntent(
-                type=ResponseType.PRODUCT_INFO,
-                confidence=0.8,
-                metadata={"category": "product_inquiry"},
-                ui_type="catalog"  # Specify UI type for product queries
-            )
+            # Get response from Groq
+            response = await groq_client.get_response(full_prompt)
+            analysis = response.get("answer", "{}")
+            
+            # Parse the response (assuming it's valid JSON)
+            import json
+            try:
+                result = json.loads(analysis)
+                
+                # Map the response type string to enum
+                response_type = ResponseType[result.get("type", "TEXT")]
+                
+                return QueryIntent(
+                    type=response_type,
+                    confidence=float(result.get("confidence", 0.6)),
+                    metadata=result.get("metadata", {}),
+                    ui_type=result.get("ui_type")
+                )
+            except json.JSONDecodeError:
+                print(f"Failed to parse Groq response as JSON: {analysis}")
+                return self._fallback_intent()
+                
+        except Exception as e:
+            print(f"Error in reasoning service: {str(e)}")
+            return self._fallback_intent()
 
-        # Check for form-related queries
-        if any(pattern in query for pattern in self.patterns[ResponseType.FORM]):
-            return QueryIntent(
-                type=ResponseType.FORM,
-                confidence=0.8,
-                metadata={"category": "form_request"},
-                ui_type="form"  # Specify UI type for form requests
-            )
-
-        # Check for order-related queries
-        if any(pattern in query for pattern in self.patterns[ResponseType.ORDER_STATUS]):
-            return QueryIntent(
-                type=ResponseType.ORDER_STATUS,
-                confidence=0.8,
-                metadata={"category": "order_inquiry"},
-                ui_type="buttons"  # Specify UI type for order status
-            )
-
-        # Check for support-related queries
-        if any(pattern in query for pattern in self.patterns[ResponseType.CUSTOMER_SUPPORT]):
-            return QueryIntent(
-                type=ResponseType.CUSTOMER_SUPPORT,
-                confidence=0.7,
-                metadata={"category": "support_request"},
-                ui_type="list"  # Specify UI type for support options
-            )
-
-        # Default to text response if no specific intent is detected
+    def _fallback_intent(self) -> QueryIntent:
+        """Provide a fallback intent when analysis fails."""
         return QueryIntent(
             type=ResponseType.TEXT,
             confidence=0.6,
-            metadata={"category": "general_query"}
+            metadata={"category": "fallback", "reason": "Error in analysis"},
+            ui_type=None
         )
 
 reasoning_service = ReasoningService() 
